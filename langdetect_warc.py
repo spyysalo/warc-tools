@@ -19,7 +19,7 @@ DetectorFactory.seed = 0    # Make langdetect deterministic
 
 def argparser():
     ap = ArgumentParser()
-    ap.add_argument('warc')
+    ap.add_argument('warc', nargs='?', default=None)
     return ap
 
 
@@ -46,16 +46,23 @@ def get_id(record):
     return record.rec_headers.get_header('WARC-Record-ID')
 
 
+def process_stream(flo):
+    for record in ArchiveIterator(flo):
+        if record.rec_type != 'response':
+            continue
+        id_ = get_id(record)
+        content = record.content_stream().read()
+        langs = detect_content_languages(id_, content)
+        print(f'{id_}\t{langs}')
+    
+
 def main(argv):
     args = argparser().parse_args(argv[1:])
-    with gzip.open(args.warc) as f:
-        for record in ArchiveIterator(f):
-            if record.rec_type != 'response':
-                continue
-            id_ = get_id(record)
-            content = record.content_stream().read()
-            langs = detect_content_languages(id_, content)
-            print(f'{id_}\t{langs}')
+    if args.warc is None:
+        process_stream(sys.stdin.buffer)    # default to STDIN
+    else:
+        with gzip.open(args.warc) as f:
+            process_stream(f)
 
 
 if __name__ == '__main__':
