@@ -19,6 +19,8 @@ fi
 INDIR="$1"
 OUTDIR="$2"
 
+INDIR=${INDIR%/}    # Remove trailing slash, if any
+
 if [ -e "$OUTDIR" ]; then
     echo "Output directory $OUTDIR exists, not clobbering. Exiting." >&2
     exit 1
