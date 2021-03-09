@@ -10,6 +10,11 @@
 #SBATCH -o logs/%j.out
 #SBATCH -e logs/%j.err
 
+INITIAL_RANDOM_SEED=6472
+RANDOM_SEED_INCREMENT=163
+
+set -euo pipefail
+
 RATIO="$1"
 URLFILE="$2"
 OUTDIR="$3"
@@ -31,16 +36,18 @@ function on_exit {
 }
 trap on_exit EXIT
 
+seed=$INITIAL_RANDOM_SEED
 cat "$URLFILE" | while read url; do
     echo "Downloading \"$url\" to $TMPDIR ..." >&2
-    echo "wget -P \"$TMPDIR\" \"$url\"" >&2
-    wget -P "$TMPDIR" "$url"
+    wget -P "$TMPDIR" -nv "$url"
     base=$(basename "$url")
     path="$TMPDIR/$base"
     echo "Sampling $path ..." >&2
-    python sample_warc_responses.py -v "$RATIO" "$path" "$OUTDIR/$base"
+    python sample_warc_responses.py -v -s $seed "$RATIO" "$path" \
+	"$OUTDIR/$base"
     echo "Removing $path ..." >&2
     rm -rf "$path"
+    seed=$((seed+RANDOM_SEED_INCREMENT))
 done
 
 echo "Finished." >&2

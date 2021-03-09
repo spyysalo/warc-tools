@@ -17,6 +17,7 @@ def argparser():
     ap.add_argument('ratio', type=float)
     ap.add_argument('warc_in')
     ap.add_argument('warc_out')
+    ap.add_argument('-s', '--seed', default=None, type=int)
     ap.add_argument('-v', '--verbose', default=False, action='store_true')
     return ap
 
@@ -42,6 +43,7 @@ def sample_warc_stream(ratio, warc_in, warc_out):
 
 def main(argv):
     args = argparser().parse_args(argv[1:])
+    random.seed(args.seed)
 
     logging.basicConfig()
     if args.verbose:
