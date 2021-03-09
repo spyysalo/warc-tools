@@ -1,1 +1,3 @@
 warcio
+langdetect
+trafilatura
