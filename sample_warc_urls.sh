@@ -3,8 +3,8 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=4G
-#SBATCH -p medium
-#SBATCH -t 36:00:00
+#SBATCH -p small
+#SBATCH -t 48:00:00
 #SBATCH --ntasks-per-node=1
 #SBATCH --account=Project_2001426
 #SBATCH -o logs/%j.out
@@ -18,8 +18,6 @@ set -euo pipefail
 RATIO="$1"
 URLFILE="$2"
 OUTDIR="$3"
-
-source venv/bin/activate
 
 mkdir -p "$OUTDIR"
 
@@ -36,15 +34,21 @@ function on_exit {
 }
 trap on_exit EXIT
 
+source venv/bin/activate
+
 seed=$INITIAL_RANDOM_SEED
 cat "$URLFILE" | while read url; do
-    echo "Downloading \"$url\" to $TMPDIR ..." >&2
-    wget -P "$TMPDIR" -nv "$url"
     base=$(basename "$url")
     path="$TMPDIR/$base"
+    out="$OUTDIR/$base"
+    if [ -s "$out" ]; then
+	echo "$out exists, skipping $url ..." >&2
+	continue
+    fi
+    echo "Downloading \"$url\" to $TMPDIR ..." >&2
+    wget -P "$TMPDIR" -nv "$url"
     echo "Sampling $path ..." >&2
-    python sample_warc_responses.py -v -s $seed "$RATIO" "$path" \
-	"$OUTDIR/$base"
+    python sample_warc_responses.py -v -s $seed "$RATIO" "$path" "$out"
     echo "Removing $path ..." >&2
     rm -rf "$path"
     seed=$((seed+RANDOM_SEED_INCREMENT))

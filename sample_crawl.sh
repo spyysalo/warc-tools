@@ -18,8 +18,14 @@ JOBS="${3:-10}"
 OUTDIR="${4:-sampled}"
 
 if [ -e "$OUTDIR" ]; then
-    echo "Output directory $OUTDIR exists, not clobbering. Exiting." >&2
-    exit 1
+    read -n 1 -r -p "Output directory $OUTDIR exists. Continue? [y/n] "
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+	echo "OK, sampling files missing from $OUTDIR."
+    else
+	echo "Exiting."
+	exit 1
+    fi
 fi
 
 # Create temporary directory and make sure it's wiped on exit
