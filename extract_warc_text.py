@@ -16,7 +16,7 @@ from warcio.archiveiterator import ArchiveIterator
 
 def argparser():
     ap = ArgumentParser()
-    ap.add_argument('warc')
+    ap.add_argument('warc', nargs='+')
     ap.add_argument('-v', '--verbose', default=False, action='store_true')
     return ap
 
@@ -64,8 +64,9 @@ def main(argv):
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
 
-    with gzip.open(args.warc) as f:
-        process_stream(f)
+    for fn in args.warc:
+        with gzip.open(fn) as f:
+            process_stream(f)
 
 
 if __name__ == '__main__':
