@@ -43,11 +43,11 @@ TASKLIST=`mktemp -p $PWD/tmp tasklist.XXX`
 # Create tasklist
 find "$INDIR" -name '*.warc.gz' | while read i; do
     o="$OUTDIR"/$(dirname ${i#$INDIR/})/$(basename $i .warc.gz).tsv
-    echo "./langdetect_warc.sh < $i > $o"
+    echo "./langdetect_warc.sh $i > $o"
 done > $TASKLIST
 
 sbatch-greasy $TASKLIST \
     --cores 1 \
-    --nodes 1 \
+    --nodes 20 \
     --time 15:00 \
     --account "$ACCOUNT"
