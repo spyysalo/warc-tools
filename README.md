@@ -23,3 +23,14 @@ output into `10-percent-sample`.
 ```
 ./sample_crawl.sh CC-MAIN-2021-04 0.1 100 10-percent-sample
 ```
+
+## Language detection
+
+Run trafilatura text extraction and langdetect language extraction
+on `.warc.gz` files in directory `10-percent-sample` with output
+to directory `10-percent-sample-langdetect`. Requires
+[GREASY](https://github.com/BSC-Support-Team/GREASY).
+
+```
+./langdetect_warcs.sh 10-percent-sample 10-percent-sample-langdetect
+```
