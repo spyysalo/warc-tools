@@ -56,6 +56,7 @@ TASKLIST=`mktemp -p $PWD/tmp tasklist.XXX`
 # Create tasklist
 set +e
 count=0
+skip=0
 find "$INDIR" -name '*.warc.gz' | while read i; do
     if [ $count -gt $MAX_STEPS ]; then
 	echo "MAX_STEPS ($MAX_STEPS) reached, skipping remaining" >&2
@@ -63,13 +64,17 @@ find "$INDIR" -name '*.warc.gz' | while read i; do
     fi
     o="$OUTDIR"/$(dirname ${i#$INDIR/})/$(basename $i)
     if [ -e "$o" ]; then
-	echo "$o exists, skipping $i" >&2
+	# echo "$o exists, skipping $i" >&2
+	skip=$((skip+1))
     else
 	echo "./filter_warc.sh $IDS $i $o"
 	count=$((count+1))
     fi
 done > $TASKLIST
 set -e
+if [ $skip -gt 0 ]; then
+    echo "skipped $skip files with existing outputs." >&2
+fi
 
 sbatch-greasy $TASKLIST \
     --cores 1 \
