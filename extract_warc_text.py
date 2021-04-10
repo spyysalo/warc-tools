@@ -67,6 +67,13 @@ def process_stream(flo, options):
           file=sys.stderr)
 
 
+def set_trafilatura_loglevel(level):
+    try:
+        trafilatura.core.LOGGER.setLevel(logging.ERROR)
+    except:
+        logging.warning('Failed to set trafilatura log level')
+
+
 def main(argv):
     args = argparser().parse_args(argv[1:])
     if args.ids is not None:
@@ -75,6 +82,8 @@ def main(argv):
     logging.basicConfig()
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
+    else:
+        set_trafilatura_loglevel(logging.ERROR)
 
     for fn in args.warc:
         if not fn.endswith('.gz'):
