@@ -52,7 +52,7 @@ TASKLIST=`mktemp -p $PWD/tmp tasklist.XXX`
 set +e
 count=0
 find "$INDIR" -name '*.warc.gz' | while read i; do
-    if [ $count -gt $MAX_STEPS ]; then
+    if [ $count -ge $MAX_STEPS ]; then
 	echo "MAX_STEPS ($MAX_STEPS) reached, skipping remaining" >&2
 	break
     fi
