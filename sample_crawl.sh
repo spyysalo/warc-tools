@@ -10,7 +10,7 @@ BASEURL="https://commoncrawl.s3.amazonaws.com"
 ACCOUNT=project_2001426
 
 # Maximum number of GREASY steps to run
-MAX_STEPS=10
+MAX_STEPS=5000
 
 INITIAL_RANDOM_SEED=6472
 RANDOM_SEED_INCREMENT=163
@@ -19,14 +19,14 @@ set -euo pipefail
 
 # Command-line arguments
 if [ $# -lt 1 ]; then
-    echo -e "Usage: $0 CRAWL-ID [SAMPLE-RATIO] [JOBS] [OUTDIR] [LANGUAGE]" >&2
+    echo -e "Usage: $0 CRAWL-ID [SAMPLE-RATIO] [NODES] [OUTDIR] [LANGUAGE]" >&2
     echo -e "Example: $0 CC-MAIN-2021-04 0.1 10 sampled" >&2
     exit 1
 fi
 
 CRAWLID="$1"
 RATIO="${2:-0.1}"
-JOBS="${3:-10}"
+NODES="${3:-10}"
 OUTDIR="${4:-sampled}"
 LANGUAGE="${5:-any}"
 
@@ -60,14 +60,6 @@ gunzip "$TMPDIR/warc.paths.gz"
 
 # Get longest common prefix of paths
 prefix=$(python commonprefix.py --dir $TMPDIR/warc.paths)
-
-# Recreate warc path directory structure in OUTDIR, excluding common
-# prefix and "/warc" suffix
-cat "$TMPDIR/warc.paths" | xargs dirname | \
-    perl -pe 's|'"$prefix"'/?||; s|/warc$||' | sort | uniq | \
-    while read p; do
-    echo "Creating directory $OUTDIR/$p"
-done
 
 # Create temporary file for GREASY tasklist
 PWD=`pwd -P`
@@ -106,6 +98,7 @@ module load greasy
 
 sbatch-greasy $TASKLIST \
     --cores 1 \
-    --nodes 10 \
-    --time 60:00 \
-    --account "$ACCOUNT"
+    --nodes "$NODES" \
+    --time 2:00:00 \
+    --account "$ACCOUNT" \
+    --file greasy-job.sbatch
