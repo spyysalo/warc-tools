@@ -12,6 +12,11 @@ from warcio import WARCWriter
 from warcio.archiveiterator import ArchiveIterator
 from warcio.recordloader import ArcWarcRecord
 
+try:
+    import trafilatura
+except:
+    logging.warning('import trafilatura failed, --language not available')
+
 
 ANY_LANGUAGE = 'any'
 
@@ -46,7 +51,6 @@ def copy_warc_record(record, payload):
 
 def sample_warc_stream(ratio, warc_in, warc_out, options):
     if options.language != ANY_LANGUAGE:
-        import trafilatura
         from langdetect import DetectorFactory, detect_langs
         DetectorFactory.seed = options.seed   # Make langdetect deterministic
 
@@ -104,6 +108,13 @@ def sample_warc_stream(ratio, warc_in, warc_out, options):
             errors += 1
 
 
+def set_trafilatura_loglevel(level):
+    try:
+        trafilatura.core.LOGGER.setLevel(level)
+    except:
+        logging.warning('Failed to set trafilatura log level')
+
+
 def main(argv):
     args = argparser().parse_args(argv[1:])
     random.seed(args.seed)
@@ -111,6 +122,7 @@ def main(argv):
     logging.basicConfig()
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
+    set_trafilatura_loglevel(logging.ERROR)
 
     with gzip.open(args.warc_in) as warc_in:
         with open(args.warc_out, 'wb') as warc_out:
