@@ -22,6 +22,7 @@ def argparser():
     ap.add_argument('-r', '--raw', default=False, action='store_true',
                     help='Output raw text without escapes')
     ap.add_argument('-v', '--verbose', default=False, action='store_true')
+    ap.add_argument('-q', '--quiet', default=False, action='store_true')
     return ap
 
 
@@ -69,7 +70,7 @@ def process_stream(flo, options):
 
 def set_trafilatura_loglevel(level):
     try:
-        trafilatura.core.LOGGER.setLevel(logging.ERROR)
+        trafilatura.core.LOGGER.setLevel(level)
     except:
         logging.warning('Failed to set trafilatura log level')
 
@@ -82,17 +83,23 @@ def main(argv):
     logging.basicConfig()
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
+        set_trafilatura_loglevel(logging.WARNING)
+    elif args.quiet:
+        logging.getLogger().setLevel(logging.ERROR)
+        set_trafilatura_loglevel(logging.CRITICAL)
     else:
         set_trafilatura_loglevel(logging.ERROR)
 
     for fn in args.warc:
-        if not fn.endswith('.gz'):
-            with open(fn, 'rb') as f:
-                process_stream(f, args)
-        else:
-            with gzip.open(fn) as f:
-                process_stream(f, args)
-
+        try:
+            if not fn.endswith('.gz'):
+                with open(fn, 'rb') as f:
+                    process_stream(f, args)
+            else:
+                with gzip.open(fn) as f:
+                    process_stream(f, args)
+        except Exception as e:
+            logging.error(f'failed processing {fn}: {e}')
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
