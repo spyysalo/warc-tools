@@ -39,10 +39,11 @@ path="$TMPDIR/$base"
 
 echo "Sampling $path ..." >&2
 source venv/bin/activate
-python sample_warc_responses.py -v -s "$SEED" -l "$LANGUAGE" "$RATIO" \
+python sample_warc_responses.py -s "$SEED" -l "$LANGUAGE" "$RATIO" \
     "$path" "$OUT"
 
 echo "Removing $path ..." >&2
 rm -rf "$path"
 
 echo "Finished samping $URL." >&2
+echo `date` > ${OUT}.completed
