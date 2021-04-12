@@ -59,9 +59,9 @@ def sample_warc_stream(ratio, warc_in, warc_out, options):
     responses, total, errors, empties, notlang = 0, 0, 0, 0, 0
     for total, record in enumerate(ArchiveIterator(warc_in), start=1):
         if total % 10000 == 0:
-            logging.info(f'processed {total} records, {responses} responses, '
-                         f'{errors} errors, {empties} empty, '
-                         f'{notlang} not in target language')
+            print(f'sample_warc_responses.py: processed {total} records, '
+                  f'{responses} responses, {errors} errors, {empties} empty, '
+                  f'{notlang} not in target language.', file=sys.stderr)
 
         if record.rec_type != 'response':
             continue
@@ -104,7 +104,7 @@ def sample_warc_stream(ratio, warc_in, warc_out, options):
         try:
             writer.write_record(record)
         except Exception as e:
-            logging.error(f'failed to write record: {e}')
+            logging.error(f'failed to write record {id_}: {e}')
             errors += 1
 
 
@@ -122,7 +122,9 @@ def main(argv):
     logging.basicConfig()
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
-    set_trafilatura_loglevel(logging.ERROR)
+        set_trafilatura_loglevel(logging.ERROR)
+    else:
+        set_trafilatura_loglevel(logging.CRITICAL)
 
     with gzip.open(args.warc_in) as warc_in:
         with open(args.warc_out, 'wb') as warc_out:
