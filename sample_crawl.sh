@@ -10,7 +10,7 @@ BASEURL="https://commoncrawl.s3.amazonaws.com"
 ACCOUNT=project_2001426
 
 # Maximum number of GREASY steps to run
-MAX_STEPS=5000
+MAX_STEPS=10000
 
 INITIAL_RANDOM_SEED=6472
 RANDOM_SEED_INCREMENT=163
@@ -94,6 +94,8 @@ cat "$TMPDIR/warc.paths" | while read p; do
     fi
 done > $TASKLIST
 
+JOB_TEMP=`mktemp -u greasy-job-XXX.sbatch`
+
 module load greasy
 
 sbatch-greasy $TASKLIST \
@@ -101,4 +103,12 @@ sbatch-greasy $TASKLIST \
     --nodes "$NODES" \
     --time 2:00:00 \
     --account "$ACCOUNT" \
-    --file greasy-job.sbatch
+    --file "$JOB_TEMP"
+
+# Puhti-specific adjustment
+perl -p -i -e 's/^(#SBATCH -p).*/$1 large/' "$JOB_TEMP"
+
+echo "----------------------------------------"
+echo " Wrote $JOB_TEMP, run the job with"
+echo "     sbatch $JOB_TEMP"
+echo "----------------------------------------"
