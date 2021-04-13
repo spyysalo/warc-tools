@@ -111,6 +111,7 @@ def sample_warc_stream(ratio, warc_in, warc_out, options):
 def set_trafilatura_loglevel(level):
     try:
         trafilatura.core.LOGGER.setLevel(level)
+        trafilatura.utils.LOGGER.setLevel(level)
     except:
         logging.warning('Failed to set trafilatura log level')
 
