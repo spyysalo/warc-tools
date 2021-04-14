@@ -16,6 +16,10 @@ URL="$3"
 OUT="$4"
 SEED="${5:-0}"
 
+echo "----------------------------------------------------------------------"
+echo "START $SLURM_JOBID: $(date): $URL"
+echo "----------------------------------------------------------------------"
+
 OUTDIR=$(dirname "$OUT")
 
 mkdir -p "$OUTDIR"
@@ -44,6 +48,10 @@ python sample_warc_responses.py -s "$SEED" -l "$LANGUAGE" "$RATIO" \
 
 echo "Removing $path ..." >&2
 rm -rf "$path"
+
+echo "----------------------------------------------------------------------"
+echo "END $SLURM_JOBID: $(date): $URL"
+echo "----------------------------------------------------------------------"
 
 echo "Finished samping $URL." >&2
 echo `date` > ${OUT}.completed
