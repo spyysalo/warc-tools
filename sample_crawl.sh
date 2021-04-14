@@ -10,7 +10,7 @@ BASEURL="https://commoncrawl.s3.amazonaws.com"
 ACCOUNT=project_2001426
 
 # Maximum number of GREASY steps to run
-MAX_STEPS=10000
+MAX_STEPS=20000
 
 INITIAL_RANDOM_SEED=6472
 RANDOM_SEED_INCREMENT=163
@@ -106,7 +106,7 @@ sbatch-greasy $TASKLIST \
     --file "$JOB_TEMP"
 
 # Puhti-specific adjustment
-perl -p -i -e 's/^(#SBATCH -p).*/$1 large/' "$JOB_TEMP"
+perl -p -i -e 's/^(#SBATCH -p) small.*/$1 large/' "$JOB_TEMP"
 
 echo "----------------------------------------"
 echo " Wrote $JOB_TEMP, run the job with"
