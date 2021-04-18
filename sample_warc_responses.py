@@ -77,6 +77,10 @@ def sample_warc_stream(ratio, warc_in, warc_out, options):
             payload_copy = BytesIO(record.raw_stream.read())
             record = copy_warc_record(record, payload_copy)
             content = record.content_stream().read()
+            # force length recalculation to work around issues with
+            # header encoding changes causing content-length mismatch
+            # (related: https://github.com/webrecorder/warcio/issues/104)
+            record.length = None
             payload_copy.seek(0)
             try:
                 text_content = trafilatura.extract(content)
