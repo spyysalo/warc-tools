@@ -7,7 +7,7 @@
 BASEURL="https://commoncrawl.s3.amazonaws.com"
 
 # Slurm account
-ACCOUNT=project_2001426
+ACCOUNT=project_2004153
 
 # Maximum number of GREASY steps to run
 MAX_STEPS=20000
@@ -66,14 +66,14 @@ PWD=`pwd -P`
 mkdir -p "$PWD/tmp"
 TASKLIST=`mktemp -p $PWD/tmp tasklist.XXX`
 
-echo $TASKLIST
-
 # Create tasklist
-echo "Creating tasklist ..." >&2
+path_count=$(wc -l < "$TMPDIR/warc.paths")
+echo "Creating tasklist $TASKLIST from $path_count paths ..." >&2
 set +e
 count=0
+skip=0
 seed=$INITIAL_RANDOM_SEED
-cat "$TMPDIR/warc.paths" | while read p; do
+while read p; do
     if [ $count -ge $MAX_STEPS ]; then
 	echo "MAX_STEPS ($MAX_STEPS) reached, skipping remaining" >&2
 	break
@@ -83,7 +83,11 @@ cat "$TMPDIR/warc.paths" | while read p; do
     dir=$(echo $(dirname "$p") | perl -pe 's|'"$prefix"'/?||; s|/warc$||')
     out="$OUTDIR/$dir/$(basename $p)"
     if [ -e "$out" ]; then
-	echo "$out exists, skipping $p" >&2
+	# echo "$out exists, skipping $p" >&2
+	skip=$((skip+1))
+	if [ $((skip % 1000)) -eq 0 ]; then
+	    echo "Skippped $skip ..." >&2
+	fi
     else
 	echo "./sample_warc_url.sh $RATIO $LANGUAGE $url $out $seed"
 	count=$((count+1))
@@ -92,7 +96,14 @@ cat "$TMPDIR/warc.paths" | while read p; do
 	    echo "Processed $count ..." >&2
 	fi
     fi
-done > $TASKLIST
+done < <(cat "$TMPDIR/warc.paths") > "$TASKLIST"
+
+echo "Wrote tasklist with $count tasks, skipped $skip." >&2
+if [ $count -eq 0 ]; then
+    rm "$TASKLIST"
+    echo "All done, exiting without tasklist." >&2
+    exit 0
+fi
 
 JOB_TEMP=`mktemp -u greasy-job-XXX.sbatch`
 
