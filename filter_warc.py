@@ -6,6 +6,8 @@ import sys
 import gzip
 import logging
 
+from time import time
+from functools import wraps
 from argparse import ArgumentParser
 
 from warcio import WARCWriter
@@ -47,6 +49,33 @@ def filter_warc_stream(ids, warc_in, warc_out):
           f'{errors} errors')
 
 
+def timed(f, out=sys.stderr):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        start = time()
+        result = f(*args, **kwargs)
+        print(f'{f.__name__} completed in {time()-start:.1f} sec', file=out)
+        return result
+    return wrapper
+
+
+@timed
+def load_response_ids(fn):
+    if not fn.endswith('.gz'):
+        xopen = open
+    else:
+        xopen = lambda p: gzip.open(p, mode='rt', encoding='utf-8')
+
+    ids = set()
+    with xopen(fn) as id_in:
+        for ln, l in enumerate(id_in, start=1):
+            id_ = l.strip()
+            if id_ in ids:
+                logging.warning('duplicate id {id_} on line {ln} in {fn}')
+            ids.add(id_)
+    return ids
+
+
 def main(argv):
     args = argparser().parse_args(argv[1:])
 
@@ -54,10 +83,7 @@ def main(argv):
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
 
-    ids = set()
-    with open(args.ids) as id_in:
-        for l in id_in:
-            ids.add(l.rstrip('\n'))
+    ids = load_response_ids(args.ids)
 
     with gzip.open(args.warc_in) as warc_in:
         with open(args.warc_out, 'wb') as warc_out:
