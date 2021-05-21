@@ -13,6 +13,13 @@ from argparse import ArgumentParser
 
 from warcio.archiveiterator import ArchiveIterator
 
+from common import (
+    get_record_id,
+    get_payload_type,
+    get_text_content,
+    is_html_like_mime_type,
+    is_unsupported_mime_type,
+)
 
 def argparser():
     ap = ArgumentParser()
@@ -21,23 +28,22 @@ def argparser():
                     help='Only extract text for given response IDs')
     ap.add_argument('-r', '--raw', default=False, action='store_true',
                     help='Output raw text without escapes')
+    ap.add_argument('-x', '--xml', default=False, action='store_true',
+                    help='Output XML')
     ap.add_argument('-v', '--verbose', default=False, action='store_true')
     ap.add_argument('-q', '--quiet', default=False, action='store_true')
     return ap
 
 
-def get_id(record):
-    return record.rec_headers.get_header('WARC-Record-ID')
-
-
 def process_stream(flo, options):
-    responses, skipped, total, empties, errors = 0, 0, 0, 0, 0
+    responses, skipped, total, empties, errors, unsupported = 0, 0, 0, 0, 0, 0
     for record in ArchiveIterator(flo):
         total += 1
         if record.rec_type != 'response':
             continue
         responses += 1
-        id_ = get_id(record)
+        id_ = get_record_id(record)
+        type_ = get_payload_type(record)
         if options.ids is not None and not any(i in id_ for i in options.ids):
             skipped += 1
             continue
@@ -45,8 +51,25 @@ def process_stream(flo, options):
         if not content:
             empties += 1
             continue
+        if is_unsupported_mime_type(type_):
+            logging.info(f'unsupported payload type: {type_}')
+            unsupported += 1
+            continue
+        if options.xml and not is_html_like_mime_type(type_):
+            logging.info(f'unsupported for XML output: {type_}')
+            unsupported += 1
+            continue
         try:
-            text_content = trafilatura.extract(content)
+            if options.xml:
+                trafilatura_options = {
+                    'output_format': 'xml',
+                    'include_formatting': True,
+                    'include_links': True,
+                }
+            else:
+                trafilatura_options = {}
+            text_content = get_text_content(id_, type_, content,
+                                            trafilatura_options)
         except Exception as e:
             logging.error(f'failed extract for {id_}: {e}')
             errors += 1
@@ -54,7 +77,7 @@ def process_stream(flo, options):
         if not text_content:
             empties += 1
             continue
-        if options.raw:
+        if options.raw or options.xml:
             print(text_content)
         else:
             escaped_text = json.dumps(text_content, ensure_ascii=False)
