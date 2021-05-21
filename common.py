@@ -61,6 +61,10 @@ def is_unsupported_mime_type(mime_type):
     return False
 
 
+def get_target_uri(record):
+    return record.rec_headers.get_header('WARC-Target-URI')
+
+
 def get_record_id(record):
     return record.rec_headers.get_header('WARC-Record-ID')
 

@@ -15,6 +15,7 @@ from warcio.archiveiterator import ArchiveIterator
 
 from common import (
     get_record_id,
+    get_target_uri,
     get_payload_type,
     get_text_content,
     is_html_like_mime_type,
@@ -74,14 +75,23 @@ def process_stream(flo, options):
             logging.error(f'failed extract for {id_}: {e}')
             errors += 1
             continue
+
         if not text_content:
             empties += 1
             continue
         if options.raw or options.xml:
             print(text_content)
         else:
-            escaped_text = json.dumps(text_content, ensure_ascii=False)
-            print(f'{id_}\t{escaped_text}')
+            uri = get_target_uri(record)
+            data = {
+                'id': id_,
+                'text': text_content,
+                'meta': {
+                    'target_uri': uri,
+                },
+            }
+            print(json.dumps(data, sort_keys=True, ensure_ascii=False))
+
         if total % 1000 == 0:
             logging.info(f'processed {total} records, {responses} responses, '
                          f'{empties} with empty text content, {errors} errors')
