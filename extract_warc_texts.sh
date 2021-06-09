@@ -7,7 +7,7 @@ ACCOUNT=project_2004407    # FinnGen-data
 #ACCOUNT=project_2004153    # From Common Crawl to clean web data
 
 # Maximum number of GREASY steps to run
-MAX_STEPS=200000
+MAX_STEPS=1 #200000
 
 set -euo pipefail
 
@@ -53,7 +53,7 @@ while read i; do
 	    echo "Skippped $skip ..." >&2
 	fi
     else
-	echo "./extract_text.sh $i $o"
+	echo "./extract_warc_text.sh $i $o"
 	count=$((count+1))
     fi
 done < <(find "$INDIR" -name '*.warc.gz') > "$TASKLIST"
