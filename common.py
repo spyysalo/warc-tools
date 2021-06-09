@@ -42,6 +42,10 @@ _UNSUPPORTED_MAIN_MIME_TYPES = {
 }
 
 
+def is_response(record):
+    return record.rec_type == 'response'
+
+
 def is_plain_text_mime_type(mime_type):
     return mime_type in _PLAIN_TEXT_MIME_TYPES
 
@@ -59,6 +63,10 @@ def is_unsupported_mime_type(mime_type):
         if mime_type.startswith(f'{m}/'):
             return True
     return False
+
+
+def get_target_uri(record):
+    return record.rec_headers.get_header('WARC-Target-URI')
 
 
 def get_record_id(record):
@@ -80,3 +88,30 @@ def get_text_content(id_, mime_type, content, trafilatura_options=None):
         logging.warning(f'unexpected MIME type {mime_type} for {id_}')
         # try anyway
         return trafilatura.extract(content, **trafilatura_options)
+
+
+def get_record_text_content(record, trafilatura_options=None):
+    id_ = get_record_id(record)
+    if record.rec_type != 'response':
+        raise ValueError(f'non-response record {id_}')
+    mime_type = get_payload_type(record)
+    if is_unsupported_mime_type(mime_type):
+        raise ValueError(f'unsupported mime type {mime_type} for {id_}')
+    content = record.content_stream().read()
+    if not content:
+        raise ValueError(f'empty content for {id_}')
+    try:
+        text = get_text_content(id_, mime_type, content, trafilatura_options)
+    except Exception as e:
+        raise ValueError(f'error extracting text for {id_}: {e}')
+    if text is None or not text:
+        raise ValueError(f'empty extracted text for {id_}')
+    return text
+
+
+def set_trafilatura_loglevel(level):
+    try:
+        trafilatura.core.LOGGER.setLevel(level)
+        trafilatura.utils.LOGGER.setLevel(level)
+    except:
+        logging.warning('Failed to set trafilatura log level')
