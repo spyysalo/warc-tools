@@ -12,10 +12,18 @@ from warcio import WARCWriter
 from warcio.archiveiterator import ArchiveIterator
 from warcio.recordloader import ArcWarcRecord
 
+from common import (
+    get_record_id,
+    get_payload_type,
+    get_text_content,
+    is_unsupported_mime_type,
+)
+
 try:
     import trafilatura
-except:
+except ImportError:
     logging.warning('import trafilatura failed, --language not available')
+    trafilatura = None
 
 
 ANY_LANGUAGE = 'any'
@@ -31,10 +39,6 @@ def argparser():
     ap.add_argument('-s', '--seed', default=None, type=int)
     ap.add_argument('-v', '--verbose', default=False, action='store_true')
     return ap
-
-
-def get_id(record):
-    return record.rec_headers.get_header('WARC-Record-ID')
 
 
 def copy_warc_record(record, payload):
@@ -56,18 +60,28 @@ def sample_warc_stream(ratio, warc_in, warc_out, options):
 
     writer = WARCWriter(warc_out, gzip=True)
 
-    responses, total, errors, empties, notlang = 0, 0, 0, 0, 0
+    responses, total, unsupported, errors, empties, notlang = 0, 0, 0, 0, 0, 0
+    def print_counts():
+        print(f'sample_warc_responses.py: processed {total} records, '
+              f'{responses} responses, {unsupported} unsupported MIME type, '
+              f'{errors} errors, {empties} empty, '
+              f'{notlang} not in target language.', file=sys.stderr)
+
     for total, record in enumerate(ArchiveIterator(warc_in), start=1):
         if total % 10000 == 0:
-            print(f'sample_warc_responses.py: processed {total} records, '
-                  f'{responses} responses, {errors} errors, {empties} empty, '
-                  f'{notlang} not in target language.', file=sys.stderr)
+            print_counts()
 
         if record.rec_type != 'response':
             continue
 
         responses += 1
-        id_ = get_id(record)
+        id_ = get_record_id(record)
+        type_ = get_payload_type(record)
+
+        if is_unsupported_mime_type(type_):
+            unsupported += 1
+            logging.info(f'unsupported payload type: {type_}')
+            continue
 
         if random.random() > ratio:
             continue
@@ -82,10 +96,11 @@ def sample_warc_stream(ratio, warc_in, warc_out, options):
             # (related: https://github.com/webrecorder/warcio/issues/104)
             record.length = None
             payload_copy.seek(0)
+
             try:
-                text_content = trafilatura.extract(content)
+                text_content = get_text_content(id_, type_, content)
             except Exception as e:
-                logging.error(f'failed extract for {id_}: {e}')
+                logging.error(f'failed to extract text for {type_} {id_}: {e}')
                 errors += 1
                 continue
 
@@ -110,6 +125,8 @@ def sample_warc_stream(ratio, warc_in, warc_out, options):
         except Exception as e:
             logging.error(f'failed to write record {id_}: {e}')
             errors += 1
+
+    print_counts()
 
 
 def set_trafilatura_loglevel(level):

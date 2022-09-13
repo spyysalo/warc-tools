@@ -20,20 +20,24 @@ def argparser():
     ap.add_argument('ids')
     ap.add_argument('warc_in')
     ap.add_argument('warc_out')
+    ap.add_argument('-r', '--refers-to', default=False, action='store_true')
     ap.add_argument('-v', '--verbose', default=False, action='store_true')
     return ap
 
 
-def get_id(record):
-    return record.rec_headers.get_header('WARC-Record-ID')
+def get_id(record, args):
+    if not args.refers_to:
+        return record.rec_headers.get_header('WARC-Record-ID')
+    else:
+        return record.rec_headers.get_header('WARC-Refers-To')
 
 
-def filter_warc_stream(ids, warc_in, warc_out):
+def filter_warc_stream(ids, warc_in, warc_out, args):
     writer = WARCWriter(warc_out, gzip=True)
 
     output, total, errors = 0, 0, 0
     for record in ArchiveIterator(warc_in):
-        id_ = get_id(record)
+        id_ = get_id(record, args)
         if id_ in ids:
             output += 1
             try:
@@ -87,7 +91,7 @@ def main(argv):
 
     with gzip.open(args.warc_in) as warc_in:
         with open(args.warc_out, 'wb') as warc_out:
-            filter_warc_stream(ids, warc_in, warc_out)
+            filter_warc_stream(ids, warc_in, warc_out, args)
 
 
 if __name__ == '__main__':

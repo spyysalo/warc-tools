@@ -50,6 +50,7 @@ def process_stream(flo, options):
             continue
         content = record.content_stream().read()
         if not content:
+            logging.warning(f'empty content: {id_}')
             empties += 1
             continue
         if is_unsupported_mime_type(type_):
@@ -77,6 +78,7 @@ def process_stream(flo, options):
             continue
 
         if not text_content:
+            logging.warning(f'empty text content: {id_}')
             empties += 1
             continue
         if options.raw or options.xml:
