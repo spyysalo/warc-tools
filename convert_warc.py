@@ -10,10 +10,13 @@ import os
 import re
 import gzip
 import json
+import random
 import logging
 
+import chardet
 import trafilatura
 import justext
+import inscriptis
 
 from collections import defaultdict
 from glob import glob
@@ -21,6 +24,8 @@ from argparse import ArgumentParser
 
 from warcio.archiveiterator import ArchiveIterator
 from bs4 import BeautifulSoup
+from goose3 import Goose
+from w3lib.encoding import html_to_unicode
 
 
 # Mime types for plain text
@@ -61,14 +66,27 @@ _UNSUPPORTED_MAIN_MIME_TYPES = {
     'application',
 }
 
+# HTML-to-text extractors
+_EXTRACTORS = [
+    'trafilatura',
+    'justext',
+    'beautifulsoup',
+    'goose3',
+    'inscriptis',
+]
+
 
 def argparser():
     ap = ArgumentParser()
     ap.add_argument('input', nargs='+', metavar='FILE-OR-DIR')
     ap.add_argument('-e', '--extractor', default='trafilatura',
-                    choices=('trafilatura', 'justext', 'beautifulsoup'))
+                    choices=_EXTRACTORS + ['random'])
     ap.add_argument('-r', '--refers-to', default=False, action='store_true',
                     help='use "WARC-Refers-To" as ID (for WET files)')
+    ap.add_argument('-s', '--sample', type=float, default=None,
+                    help='sample given ratio of responses')
+    ap.add_argument('-t', '--text-only', default=False, action='store_true',
+                    help='output plain text instead of JSONL')
     ap.add_argument('-v', '--verbose', default=False, action='store_true')
     ap.add_argument('-q', '--quiet', default=False, action='store_true')
     return ap
@@ -139,7 +157,7 @@ def justext_extract(content):
 
 def trafilatura_extract(content, uri, args):
     options = {
-        'include_tables': False,
+        #'include_tables': False,
         #'favor_precision': True,
         #'favor_recall': True,
     }
@@ -168,15 +186,38 @@ def beautifulsoup_extract(content):
     return text
 
 
+def inscriptis_extract(content):
+    content = html_to_unicode(None, content)[1]    # TODO pass header
+    #content = UnicodeDammit(content).unicode_markup    # alternative
+    text = inscriptis.get_text(content)
+    text = normalize_space(text)
+    return text
+
+
+def goose3_extract(content):
+    g = Goose()
+    a = g.extract(raw_html=content)
+    return a.cleaned_text
+
+
 def extract_text_from_html(id_, uri, mime_type, content, args):
-    if args.extractor == 'trafilatura':
-        return trafilatura_extract(content, uri, args)
-    elif args.extractor == 'justext':
-        return justext_extract(content)
-    elif args.extractor == 'beautifulsoup':
-        return beautifulsoup_extract(content)
+    if args.extractor == 'random':
+        extractor = random.choice(_EXTRACTORS)
     else:
-        raise ValueError(args.extractor)
+        extractor = args.extractor
+
+    if extractor == 'trafilatura':
+        return trafilatura_extract(content, uri, args)
+    elif extractor == 'justext':
+        return justext_extract(content)
+    elif extractor == 'beautifulsoup':
+        return beautifulsoup_extract(content)
+    elif extractor == 'inscriptis':
+        return inscriptis_extract(content)
+    elif extractor == 'goose3':
+        return goose3_extract(content)
+    else:
+        raise ValueError(extractor)
 
 
 def get_text_content(id_, uri, mime_type, content, args):
@@ -194,6 +235,7 @@ def write_stats(stats, label, out=sys.stderr):
     print(
         f'{label}',
         f'{stats["total"]} records,',
+        f'{stats["skipped"]} skipped,',
         f'{stats["responses"]} responses,',
         f'{stats["conversions"]} conversions,',
         f'{stats["empties"]} with empty text content,',
@@ -219,7 +261,11 @@ def convert_warc_stream(stream, stats, args):
     for record in ArchiveIterator(stream):
         stats['total'] += 1
 
-        if record.rec_type == 'response':
+        if args.sample is not None and random.random() > args.sample:
+            stats['skipped'] += 1
+            continue
+
+        if is_response(record):
             stats['responses'] += 1
         elif record.rec_type == 'conversion':
             stats['conversions'] += 1
@@ -262,17 +308,24 @@ def convert_warc_stream(stream, stats, args):
             stats['empties'] += 1
             continue
 
-        data = {
-            'id': f'commoncrawl:{id_}',
-            'text': text_content,
-            'meta': {
-                'uri': uri,
-                'source_type': type_,
-                'download_date': date,
-                'source_length': length,
-            },
-        }
-        print(json.dumps(data, ensure_ascii=False))
+        if args.text_only:
+            try:
+                print(text_content)
+            except UnicodeEncodeError:
+                text_content = text_content.encode('utf-8', 'replace').decode('utf-8')
+                print(text_content)                
+        else:
+            data = {
+                'id': f'commoncrawl:{id_}',
+                'text': text_content,
+                'meta': {
+                    'uri': uri,
+                    'source_type': type_,
+                    'download_date': date,
+                    'source_length': length,
+                },
+            }
+            print(json.dumps(data, ensure_ascii=False))
 
         if stats['total'] % 1000 == 0 and not args.quiet:
             write_stats(stats, 'processed')
