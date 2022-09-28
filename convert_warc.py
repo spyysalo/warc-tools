@@ -13,7 +13,6 @@ import json
 import random
 import logging
 
-import chardet
 import trafilatura
 import justext
 import inscriptis
@@ -325,7 +324,11 @@ def convert_warc_stream(stream, stats, args):
                     'source_length': length,
                 },
             }
-            print(json.dumps(data, ensure_ascii=False))
+            try:
+                print(json.dumps(data, ensure_ascii=False))
+            except UnicodeEncodeError:
+                data['text'] = data['text'].encode('utf-8', 'replace').decode('utf-8')
+                print(json.dumps(data, ensure_ascii=False))
 
         if stats['total'] % 1000 == 0 and not args.quiet:
             write_stats(stats, 'processed')
