@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 
 # Extract text from WARC files and convert inta a simple JSONL format
@@ -26,6 +27,8 @@ from bs4 import BeautifulSoup
 from goose3 import Goose
 from w3lib.encoding import html_to_unicode
 
+# workaround for high recursion in str(soup)
+sys.setrecursionlimit(10000)
 
 # Mime types for plain text
 _PLAIN_TEXT_MIME_TYPES = {
@@ -75,11 +78,74 @@ _EXTRACTORS = [
 ]
 
 
+# HTML inline elements
+# (from https://developer.mozilla.org/en-US/docs/Web/HTML/Inline_elements)
+_INLINE_ELEMENTS = [
+    'a',
+    'abbr',
+    'acronym',
+    'audio',
+    'b',
+    'bdi',
+    'bdo',
+    'big',
+    #'br', # Keep linebreak on <br>
+    'button',
+    'canvas',
+    'cite',
+    'code',
+    'data',
+    'datalist',
+    'del',
+    'dfn',
+    'em',
+    'embed',
+    'i',
+    'iframe',
+    'img',
+    'input',
+    'ins',
+    'kbd',
+    'label',
+    'map',
+    'mark',
+    'meter',
+    'noscript',
+    'object',
+    'output',
+    'picture',
+    'progress',
+    'q',
+    'ruby',
+    's',
+    'samp',
+    'script',
+    'select',
+    'slot',
+    'small',
+    'span',
+    'strong',
+    'sub',
+    'sup',
+    'svg',
+    'template',
+    'textarea',
+    'time',
+    'u',
+    'tt',
+    'var',
+    'video',
+    'wbr',
+]
+
+
 def argparser():
     ap = ArgumentParser()
     ap.add_argument('input', nargs='+', metavar='FILE-OR-DIR')
     ap.add_argument('-e', '--extractor', default='trafilatura',
                     choices=_EXTRACTORS + ['random'])
+    ap.add_argument('-H', '--html', default=False, action='store_true',
+                    help='output HTML instead of extracted text')
     ap.add_argument('-r', '--refers-to', default=False, action='store_true',
                     help='use "WARC-Refers-To" as ID (for WET files)')
     ap.add_argument('-s', '--sample', type=float, default=None,
@@ -173,15 +239,31 @@ def normalize_space(text):
     return text
 
 
-def beautifulsoup_extract(content):
-    soup = BeautifulSoup(content, features='html.parser') #features='lxml')
+def beautifulsoup_extract(content, parser='html.parser'):
+    soup = BeautifulSoup(content, features=parser)
     
-    # drop script and style elements (TODO: is this necessary?)
-    for e in soup(['script', 'style']):
+    # drop script and style elements (TODO: unnecessary for get_text)
+    for e in soup.find_all(['script', 'style']):
         e.extract()
 
-    text = soup.get_text()
+    # drop undesirable elements
+    for e in soup.find_all(['noscript']):
+        e.extract()
+
+    # maybe drop these?
+    # for e in soup.find_all(['header', 'footer']):
+    #     e.extract()
+
+    # unwrap inline elements for get_text('\n')
+    for e in soup.find_all(_INLINE_ELEMENTS):
+        e.unwrap()
+
+    # reparse to merge (see https://stackoverflow.com/questions/44679677)
+    soup = BeautifulSoup(str(soup), features=parser)
+
+    text = soup.get_text(separator='\n')
     text = normalize_space(text)
+
     return text
 
 
@@ -199,7 +281,20 @@ def goose3_extract(content):
     return a.cleaned_text
 
 
+def pretty_html(content, parser='html.parser'):
+    soup = BeautifulSoup(content, features=parser)
+
+    # drop script and style elements
+    for e in soup.find_all(['script', 'style']):
+        e.extract()
+
+    return soup.prettify()
+
+
 def extract_text_from_html(id_, uri, mime_type, content, args):
+    if args.html:
+        return pretty_html(content)
+
     if args.extractor == 'random':
         extractor = random.choice(_EXTRACTORS)
     else:
