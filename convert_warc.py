@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 
 # Extract text from WARC files and convert inta a simple JSONL format
