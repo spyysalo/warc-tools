@@ -14,6 +14,7 @@ _HTML_LIKE_MIME_TYPES = {
     'text/html',
     'application/xhtml+xml',
     'application/xml',
+    'application/http',
 }
 
 # MIME types for which text extraction is currently implemented
@@ -51,7 +52,10 @@ def is_plain_text_mime_type(mime_type):
 
 
 def is_html_like_mime_type(mime_type):
-    return mime_type in _HTML_LIKE_MIME_TYPES
+    return (
+        mime_type in _HTML_LIKE_MIME_TYPES or
+        any(mime_type.startswith(t) for t in _HTML_LIKE_MIME_TYPES)
+    )
 
 
 def is_unsupported_mime_type(mime_type):
@@ -59,6 +63,9 @@ def is_unsupported_mime_type(mime_type):
         return False
     elif mime_type in _UNSUPPORTED_MIME_TYPES:
         return True
+    for m in _SUPPORTED_MIME_TYPES:
+        if mime_type.startswith(f'{m};'):
+            return False
     for m in _UNSUPPORTED_MAIN_MIME_TYPES:
         if mime_type.startswith(f'{m}/'):
             return True
@@ -73,8 +80,20 @@ def get_record_id(record):
     return record.rec_headers.get_header('WARC-Record-ID')
 
 
+def get_refers_to(record):
+    return record.rec_headers.get_header('WARC-Refers-To')
+
+
 def get_payload_type(record):
     return record.rec_headers.get_header('WARC-Identified-Payload-Type')
+
+
+def get_mime_type(record):
+    type_ = record.rec_headers.get_header('WARC-Identified-Payload-Type')
+    if type_ is not None:
+        return type_
+    else:
+        return record.rec_headers.get_header('Content-Type')
 
 
 def get_text_content(id_, mime_type, content, trafilatura_options=None):
