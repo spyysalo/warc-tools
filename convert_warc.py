@@ -13,6 +13,7 @@ import json
 import random
 import logging
 
+import zstandard as zstd
 import trafilatura
 import justext
 import inscriptis
@@ -429,11 +430,15 @@ def convert_warc_stream(stream, stats, args):
 
 
 def convert_warc(fn, stats, args):
-    if not fn.endswith('.gz'):
-        with open(fn, 'rb') as f:
+    if fn.endswith('.gz'):
+        with gzip.open(fn) as f:
+            convert_warc_stream(f, stats, args)
+    elif fn.endswith('.zst'):
+        dctx = zstd.ZstdDecompressor(max_window_size=2**31)
+        with zstd.open(fn, 'rb', dctx=dctx) as f:
             convert_warc_stream(f, stats, args)
     else:
-        with gzip.open(fn) as f:
+        with open(fn, 'rb') as f:
             convert_warc_stream(f, stats, args)
 
 
